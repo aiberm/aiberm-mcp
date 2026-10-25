@@ -20,7 +20,7 @@ Aiberm needs both on every account request, and they must belong to the same use
 Paste this prompt into Claude Code, Codex, Grok Build, or another agent, and let it install the Skill:
 
 ```text
-Install the Aiberm Skill from https://github.com/aiberm/aiberm-skill: copy its skills/aiberm folder into the folder you load Skills from (Claude Code: ~/.claude/skills, Codex: ~/.agents/skills, Grok Build: ~/.grok/skills).
+Install the Aiberm Skill from https://github.com/aiberm/aiberm-skill: copy its skills/aiberm folder into the folder you load Skills from.
 ```
 
 Then start a new session. Call it directly with `/aiberm` in Claude Code and Grok Build, or `$aiberm` in Codex. To update, send the same prompt again.
