@@ -1,10 +1,12 @@
-"""Docs consistency and the thin New API GET helper. No MCP protocol."""
+"""Docs consistency and the Aiberm GET helper."""
 
 from __future__ import annotations
 
+import base64
 import importlib.util
 import json
 import os
+import re
 import sys
 import threading
 import unittest
@@ -15,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 HELPER = ROOT / "skills" / "aiberm" / "scripts" / "aiberm_get.py"
 SKILL = ROOT / "skills" / "aiberm" / "SKILL.md"
 README = ROOT / "README.md"
+EXAMPLE = ROOT / "examples" / "self.sh"
+ENV_EXAMPLE = ROOT / ".env.example"
 
 EXPECTED_PATHS = frozenset(
     {
@@ -58,6 +62,8 @@ BANNED_PRODUCT_STRINGS = (
     "aiberm-mcp",
 )
 
+USER_FACING = (SKILL, README, EXAMPLE, ENV_EXAMPLE)
+
 
 def load_helper():
     spec = importlib.util.spec_from_file_location("aiberm_get", HELPER)
@@ -72,6 +78,18 @@ def load_helper():
 helper = load_helper()
 
 
+def documents_path(text: str, path: str) -> bool:
+    return f"`{path}`" in text or f"`GET {path}`" in text or f"`POST {path}`" in text
+
+
+def jwt_with_id(user_id: int) -> str:
+    def b64(obj: object) -> str:
+        raw = json.dumps(obj, separators=(",", ":")).encode()
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    return f"{b64({'alg': 'none'})}.{b64({'id': user_id})}."
+
+
 class DocsTest(unittest.TestCase):
     def test_skill_frontmatter(self) -> None:
         text = SKILL.read_text()
@@ -82,8 +100,12 @@ class DocsTest(unittest.TestCase):
         self.assertIn("name: aiberm\n", frontmatter)
         self.assertIn("description:", frontmatter)
         self.assertIn("Aiberm", frontmatter)
-        self.assertIn("New API", frontmatter)
-        self.assertIn("balance", frontmatter)
+        self.assertIn("余额", frontmatter)
+        self.assertIn("模型", frontmatter)
+        self.assertIn("令牌", frontmatter)
+        self.assertIn("用量", frontmatter)
+        self.assertIn("AIBERM_ACCESS_TOKEN", frontmatter)
+        self.assertIsNone(re.search(r"new api", frontmatter, re.I))
 
     def test_every_user_path_is_documented(self) -> None:
         self.assertEqual(helper.USER_PATHS, EXPECTED_PATHS)
@@ -98,8 +120,26 @@ class DocsTest(unittest.TestCase):
             for needle in OUT_OF_SCOPE:
                 self.assertIn(needle, text, f"{path.name} missing {needle}")
             self.assertIn("payment", text.lower())
-            self.assertIn("New-Api-User", text)
+            self.assertIn("AIBERM_ACCESS_TOKEN", text)
             self.assertIn("500000", text)
+            self.assertIn("https://aiberm.com", text)
+
+    def test_user_facing_copy_is_aiberm_only(self) -> None:
+        for path in USER_FACING:
+            text = path.read_text()
+            self.assertNotIn("NEW_API", text, path.name)
+            self.assertIsNone(re.search(r"new api", text, re.I), path.name)
+            self.assertIsNone(re.search(r"new-api", text, re.I), path.name)
+            self.assertNotIn("NEW_API_USER_ID", text, path.name)
+            self.assertNotIn("NEW_API_BASE_URL", text, path.name)
+            self.assertNotIn("NEW_API_QUOTA_PER_UNIT", text, path.name)
+        script = HELPER.read_text()
+        self.assertNotIn("NEW_API", script)
+        self.assertIsNone(re.search(r"New API", script))
+        self.assertIn("AIBERM_ACCESS_TOKEN", script)
+        self.assertIn("https://aiberm.com", script)
+        self.assertEqual(helper.BASE_URL, "https://aiberm.com")
+        self.assertEqual(helper.QUOTA_PER_USD, 500_000)
 
     def test_repo_is_a_skill_package(self) -> None:
         readme = README.read_text()
@@ -109,7 +149,7 @@ class DocsTest(unittest.TestCase):
         self.assertFalse((ROOT / "src").exists())
         banned: list[str] = []
         for dirpath, dirnames, filenames in os.walk(ROOT):
-            dirnames[:] = [name for name in dirnames if name != ".git"]
+            dirnames[:] = [name for name in dirnames if name not in {".git", "__pycache__"}]
             for name in filenames:
                 rel = Path(dirpath, name).relative_to(ROOT).as_posix()
                 if rel in {"package.json", "package-lock.json"} or rel.startswith("src/") or name == "mcp.json":
@@ -153,6 +193,7 @@ class HelperTest(unittest.TestCase):
         payload = {
             "success": True,
             "data": {
+                "id": 42,
                 "key": full_key,
                 "masked": "sk-abc****wxyz",
                 "note": f"leak {full_key} and {token}",
@@ -171,167 +212,172 @@ class HelperTest(unittest.TestCase):
         masked_long = "sk-" + ("d" * 20) + "****wxyz"
         self.assertEqual(helper.redact_text(masked_long), masked_long)
 
-    def test_quota_math(self) -> None:
+    def test_balance_math(self) -> None:
         self.assertEqual(helper.quota_to_usd(500_000), 1)
         self.assertEqual(helper.quota_to_usd(2_500_000), 5)
         self.assertEqual(helper.quota_to_usd(1), 0.000002)
-        self.assertEqual(helper.token_price_usd_per_million(1, 1, 500_000), 2)
-        self.assertEqual(helper.token_price_usd_per_million(0.5, 2, 500_000), 2)
+        self.assertEqual(helper.token_price_usd_per_million(1, 1), 2)
+        self.assertEqual(helper.token_price_usd_per_million(0.5, 2), 2)
         self.assertEqual(helper.request_price_usd(0.1, 1.5), 0.15)
 
-    def test_config_rejects_bad_values(self) -> None:
-        good = {
-            "NEW_API_ACCESS_TOKEN": "token",
-            "NEW_API_USER_ID": "42",
-        }
-        helper.load_config(good)
+    def test_config_rejects_bad_token(self) -> None:
+        helper.load_token({"AIBERM_ACCESS_TOKEN": "token"})
         with self.assertRaises(helper.ConfigError):
-            helper.load_config({**good, "NEW_API_USER_ID": "user"})
+            helper.load_token({})
         with self.assertRaises(helper.ConfigError):
-            helper.load_config({**good, "NEW_API_ACCESS_TOKEN": "tok\nen"})
-        with self.assertRaises(helper.ConfigError):
-            helper.load_config({**good, "NEW_API_BASE_URL": "https://user:pass@aiberm.com"})
-        with self.assertRaises(helper.ConfigError):
-            helper.load_config({**good, "NEW_API_BASE_URL": "https://aiberm.com/api"})
-        with self.assertRaises(helper.ConfigError):
-            helper.load_config({**good, "NEW_API_QUOTA_PER_UNIT": "0"})
+            helper.load_token({"AIBERM_ACCESS_TOKEN": "tok\nen"})
+        self.assertEqual(helper.account_id_from_token(jwt_with_id(9)), "9")
+        self.assertIsNone(helper.account_id_from_token("opaque-token"))
 
     def test_dry_run_hides_token(self) -> None:
         token = "sk-" + ("c" * 24)
-        env = {
-            "NEW_API_BASE_URL": "https://aiberm.com",
-            "NEW_API_ACCESS_TOKEN": token,
-            "NEW_API_USER_ID": "7",
-        }
-        config = helper.load_config(env)
-        text = helper.dry_run_text(config, "/api/user/self", {})
+        env = {"AIBERM_ACCESS_TOKEN": token}
+        text = helper.dry_run_text(token, "/api/user/self", {})
         self.assertIn("GET https://aiberm.com/api/user/self", text)
         self.assertIn("Authorization: Bearer [redacted]", text)
-        self.assertIn("New-Api-User: 7", text)
         self.assertNotIn(token, text)
+        self.assertNotIn(helper.ACCOUNT_HEADER, text)
         code, stdout, stderr = run_cli(["--dry-run", "/api/channel/"], env)
         self.assertEqual(code, 2)
         self.assertEqual(stdout, "")
         self.assertIn("allowlist", stderr)
         self.assertNotIn(token, stderr)
 
-    def test_loopback_get_redacts_and_sends_headers(self) -> None:
+    def test_loopback_profile_uses_bearer_only(self) -> None:
         token = "loopback-access-token"
         full_key = "sk-" + ("b" * 20)
         seen: list[dict[str, str]] = []
-
-        class Handler(BaseHTTPRequestHandler):
-            protocol_version = "HTTP/1.1"
-
-            def do_GET(self) -> None:  # noqa: N802
-                seen.append(
-                    {
-                        "path": self.path,
-                        "authorization": self.headers.get("Authorization", ""),
-                        "user": self.headers.get("New-Api-User", ""),
-                        "accept": self.headers.get("Accept", ""),
-                        "ua": self.headers.get("User-Agent", ""),
-                        "method": self.command,
-                    }
-                )
-                if self.path.startswith("/api/user/models"):
-                    self.send_response(302)
-                    self.send_header("Location", "http://127.0.0.1/stolen")
-                    self.send_header("Content-Length", "0")
-                    self.end_headers()
-                    return
-                if self.path.startswith("/api/pricing"):
-                    body = json.dumps({"success": False, "message": "unauthorized"}).encode()
-                    self.send_response(401)
-                    self._write(body)
-                    return
-                if "fail=1" in self.path:
-                    body = json.dumps({"success": False, "message": f"nope {full_key}"}).encode()
-                    self.send_response(200)
-                    self._write(body)
-                    return
-                body = json.dumps(
-                    {
-                        "success": True,
-                        "data": {
-                            "quota": 500000,
-                            "key": full_key,
-                            "masked": "sk-abc****wxyz",
-                            "echo": self.headers.get("Authorization", ""),
-                        },
-                    }
-                ).encode()
-                self.send_response(200)
-                self._write(body)
-
-            def _write(self, body: bytes) -> None:
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-
-            def log_message(self, fmt: str, *args: object) -> None:
-                return
-
-        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
-        def stop_server() -> None:
-            server.shutdown()
-            server.server_close()
-
-        self.addCleanup(stop_server)
+        server = serve(seen, full_key, require_header=False)
+        self.addCleanup(stop_server, server)
         port = server.server_address[1]
-        env = {
-            "NEW_API_BASE_URL": f"http://127.0.0.1:{port}",
-            "NEW_API_ACCESS_TOKEN": token,
-            "NEW_API_USER_ID": "42",
-            "NEW_API_QUOTA_PER_UNIT": "500000",
-        }
+        base = f"http://127.0.0.1:{port}"
 
-        code, stdout, stderr = run_cli(["/api/user/self"], env)
-        self.assertEqual(stderr, "")
+        code, body = helper.execute(token, "/api/user/self", base_url=base)
         self.assertEqual(code, 0)
-        self.assertEqual(seen[-1]["method"], "GET")
-        self.assertEqual(seen[-1]["authorization"], f"Bearer {token}")
-        self.assertEqual(seen[-1]["user"], "42")
-        self.assertEqual(seen[-1]["accept"], "application/json")
-        self.assertEqual(seen[-1]["ua"], "aiberm-skill/1.0")
-        payload = json.loads(stdout)
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0]["path"].split("?", 1)[0], "/api/user/self")
+        self.assertEqual(seen[0]["authorization"], f"Bearer {token}")
+        self.assertEqual(seen[0]["user"], "")
+        self.assertEqual(seen[0]["ua"], "aiberm-skill/1.0")
+        payload = json.loads(body)
         self.assertEqual(payload["data"]["key"], "***")
         self.assertEqual(payload["data"]["masked"], "sk-abc****wxyz")
         self.assertEqual(payload["data"]["echo"], "Bearer [redacted]")
-        self.assertNotIn(token, stdout)
-        self.assertNotIn(full_key, stdout)
+        self.assertNotIn(token, body)
+        self.assertNotIn(full_key, body)
 
-        code, stdout, stderr = run_cli(["/api/log/self", "p=1", "page_size=20", "type=2"], env)
-        self.assertEqual(code, 0, stderr)
+        code, body = helper.execute(token, "/api/log/self", {"p": "1", "page_size": "20", "type": "2"}, base_url=base)
+        self.assertEqual(code, 0, body)
+        self.assertEqual(seen[-2]["path"].split("?", 1)[0], "/api/user/self")
+        self.assertEqual(seen[-2]["user"], "")
+        self.assertEqual(seen[-1]["path"].split("?", 1)[0], "/api/log/self")
         self.assertIn("p=1", seen[-1]["path"])
-        self.assertIn("page_size=20", seen[-1]["path"])
         self.assertIn("type=2", seen[-1]["path"])
+        self.assertEqual(seen[-1]["user"], "42")
+        self.assertEqual(seen[-1]["authorization"], f"Bearer {token}")
 
-        code, stdout, _stderr = run_cli(["/api/user/self", "fail=1"], env)
-        self.assertEqual(code, 1)
-        self.assertIn("nope", stdout)
-        self.assertNotIn(full_key, stdout)
-        self.assertIn("sk-[redacted]", stdout)
+    def test_account_header_bootstrap_uses_token_id(self) -> None:
+        token = jwt_with_id(9)
+        full_key = "sk-" + ("e" * 20)
+        seen: list[dict[str, str]] = []
+        server = serve(seen, full_key, require_header=True)
+        self.addCleanup(stop_server, server)
+        port = server.server_address[1]
+        base = f"http://127.0.0.1:{port}"
 
-        code, stdout, _stderr = run_cli(["/api/pricing"], env)
-        self.assertEqual(code, 1)
-        self.assertIn("unauthorized", stdout)
+        code, body = helper.execute(token, "/api/pricing", base_url=base)
+        self.assertEqual(code, 0, body)
+        self.assertGreaterEqual(len(seen), 2)
+        self.assertEqual(seen[0]["user"], "")
+        self.assertEqual(seen[1]["user"], "9")
+        self.assertEqual(seen[-1]["path"].split("?", 1)[0], "/api/pricing")
+        self.assertEqual(seen[-1]["user"], "9")
+        self.assertNotIn(token, body)
 
-        before = len(seen)
-        code, stdout, stderr = run_cli(["/api/user/models"], env)
-        self.assertEqual(code, 2)
-        self.assertEqual(stdout, "")
-        self.assertIn("refusing redirect", stderr)
-        self.assertNotIn(token, stderr)
-        self.assertEqual(len(seen), before + 1)
+    def test_redirect_is_refused(self) -> None:
+        token = "loopback-access-token"
+        seen: list[dict[str, str]] = []
+        server = serve(seen, "sk-" + ("b" * 20), require_header=False, redirect_models=True)
+        self.addCleanup(stop_server, server)
+        port = server.server_address[1]
+        with self.assertRaises(helper.UserPathError) as caught:
+            helper.execute(token, "/api/user/models", base_url=f"http://127.0.0.1:{port}")
+        self.assertIn("refusing redirect", str(caught.exception))
+        self.assertNotIn(token, str(caught.exception))
 
 
-def documents_path(text: str, path: str) -> bool:
-    return f"`{path}`" in text or f"`GET {path}`" in text or f"`POST {path}`" in text
+def serve(
+    seen: list[dict[str, str]],
+    full_key: str,
+    *,
+    require_header: bool,
+    redirect_models: bool = False,
+) -> ThreadingHTTPServer:
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self) -> None:  # noqa: N802
+            account = self.headers.get(helper.ACCOUNT_HEADER, "")
+            seen.append(
+                {
+                    "path": self.path,
+                    "authorization": self.headers.get("Authorization", ""),
+                    "user": account,
+                    "accept": self.headers.get("Accept", ""),
+                    "ua": self.headers.get("User-Agent", ""),
+                    "method": self.command,
+                }
+            )
+            path = self.path.split("?", 1)[0]
+            if redirect_models and path == "/api/user/models":
+                self.send_response(302)
+                self.send_header("Location", "http://127.0.0.1/stolen")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            if require_header and account == "":
+                body = json.dumps(
+                    {"success": False, "message": "无权进行此操作，未提供 New-Api-User"}
+                ).encode()
+                self._write(200, body)
+                return
+            if path == "/api/pricing" and require_header and account != "9":
+                body = json.dumps({"success": False, "message": "account mismatch"}).encode()
+                self._write(200, body)
+                return
+            body = json.dumps(
+                {
+                    "success": True,
+                    "data": {
+                        "id": 42 if not require_header else 9,
+                        "quota": 500000,
+                        "key": full_key,
+                        "masked": "sk-abc****wxyz",
+                        "echo": self.headers.get("Authorization", ""),
+                    },
+                }
+            ).encode()
+            self._write(200, body)
+
+        def _write(self, status: int, body: bytes) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server
+
+
+def stop_server(server: ThreadingHTTPServer) -> None:
+    server.shutdown()
+    server.server_close()
 
 
 def run_cli(args: list[str], env: dict[str, str]) -> tuple[int, str, str]:
