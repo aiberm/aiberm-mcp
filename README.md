@@ -17,12 +17,26 @@ Aiberm needs both on every account request, and they must belong to the same use
 
 ## Install
 
-```bash
-mkdir -p ~/.claude/skills
-cp -R skills/aiberm ~/.claude/skills/aiberm
+**Claude Code** (2.1.275 or later), inside a session:
+
+```text
+/plugin install aiberm --marketplace aiberm/aiberm-skill
 ```
 
-The same folder works under `~/.cursor/skills/`, `~/.codex/skills/`, or a project's `.claude/skills/`.
+On older versions, run `/plugin marketplace add aiberm/aiberm-skill`, then `/plugin install aiberm@aiberm`. Run `/reload-plugins` if asked. The skill is `/aiberm:aiberm`.
+
+**Codex**, in a terminal:
+
+```bash
+codex plugin marketplace add aiberm/aiberm-skill
+codex plugin add aiberm@aiberm
+```
+
+Then start a new Codex session. You can also install it from `/plugins` inside Codex.
+
+**Other agents**: copy `skills/aiberm` into the folder where the agent loads skills.
+
+The repository is both a Claude Code marketplace (`.claude-plugin/marketplace.json`) and a Codex marketplace (`.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`).
 
 [`examples/self.sh`](examples/self.sh) is the profile request as a script.
 

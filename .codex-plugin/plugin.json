@@ -1,0 +1,6 @@
+{
+  "name": "aiberm",
+  "version": "1.0.0",
+  "description": "Check your Aiberm balance, usage, and prices, and manage your API tokens.",
+  "skills": "./skills/"
+}

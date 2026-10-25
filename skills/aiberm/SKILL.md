@@ -38,7 +38,7 @@ Paginated `data` is `{page, page_size, total, items}`. The page parameter is `p`
 | Question | Request | Notes |
 | --- | --- | --- |
 | Profile, balance (余额) | `GET /api/user/self` | `quota` is the remaining balance, `used_quota` is total spent |
-| Usable groups | `GET /api/user/self/groups` | `data` keyed by group: `{ratio, desc}`. `auto` has ratio `自动` |
+| Price ratios | `GET /api/user/self/groups` | `data` keyed by group name: `{ratio, desc}`. Only for price math, see Money |
 | Callable models (模型) | `GET /api/user/models` | list of model names |
 | Prices | `GET /api/pricing` | ~40 KB; filter by model name, for example with `jq` |
 | Tokens (令牌) | `GET /api/token/` | `p`, `page_size`. Items include the **full** key |
@@ -62,11 +62,13 @@ Pricing rows from `/api/pricing`:
 - `quota_type` 1: USD per request = `model_price * group_ratio`.
 - `official_input` / `official_output`: the vendor's list price in USD per 1M tokens, when set.
 
-`/api/pricing` ignores the access token, so its `group_ratio` is the anonymous view. Use the user's ratio from `/api/user/self/groups`. A model is available in the groups listed in its `enable_groups`.
+`/api/pricing` ignores the access token, so its `group_ratio` is the anonymous view. For `group_ratio`, take the user's `group` from `/api/user/self` and its `ratio` from `/api/user/self/groups`. Quote only models whose `enable_groups` includes that group.
+
+Aiberm does not offer groups as a feature. Do not mention groups, group names, or ratios to the user; give the final price.
 
 ## Manage tokens
 
-The user may ask you to create, edit, enable, disable, or delete their API tokens (令牌). Before every write, tell the user exactly what you will send (name, quota in USD, expiry, group, model limits, or which token to delete) and wait for them to confirm.
+The user may ask you to create, edit, enable, disable, or delete their API tokens (令牌). Before every write, tell the user exactly what you will send (name, quota in USD, expiry, model limits, or which token to delete) and wait for them to confirm.
 
 Writes send JSON, for example:
 
@@ -90,7 +92,7 @@ Token fields:
 - `name`: at most 50 characters.
 - `unlimited_quota`: `true` for no cap. Otherwise `remain_quota` is the cap in quota units: $5 is `2500000`.
 - `expired_time`: unix seconds, or `-1` for never.
-- `group`: a group from `GET /api/user/self/groups`. Without one from the user, use `auto` if it is listed, else `""` (the user's own group).
+- `group`: do not ask the user. Use `auto` if `GET /api/user/self/groups` lists it, else `""`. When editing, keep the token's current value.
 - `model_limits_enabled` and `model_limits`: to allow only some models, `true` and a comma-separated list of names from `GET /api/user/models`.
 - `allow_ips`: allowed client IPs, one per line. `""` allows any.
 

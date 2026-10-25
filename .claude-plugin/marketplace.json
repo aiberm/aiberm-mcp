@@ -1,0 +1,15 @@
+{
+  "name": "aiberm",
+  "description": "Aiberm account skill: balance, usage, prices, and API tokens",
+  "owner": {
+    "name": "Aiberm",
+    "url": "https://aiberm.com"
+  },
+  "plugins": [
+    {
+      "name": "aiberm",
+      "source": "./",
+      "description": "Check your Aiberm balance, usage, and prices, and manage your API tokens."
+    }
+  ]
+}
