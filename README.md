@@ -68,7 +68,7 @@ curl -sS -G "https://aiberm.com/api/log/self" \
 
 [`examples/self.sh`](examples/self.sh) is the profile request as a script. Do not add `curl -v` or shell trace; those print the access token.
 
-[`skills/aiberm/SKILL.md`](skills/aiberm/SKILL.md) has a curl for every account endpoint. The helper `skills/aiberm/scripts/aiberm_get.py` sends the same GET, resolves the account id, refuses anything outside the allowlist, and redacts stdout:
+The two curls above are the pattern for every account GET. [`skills/aiberm/SKILL.md`](skills/aiberm/SKILL.md) lists the paths, query parameters, and response fields. The helper `skills/aiberm/scripts/aiberm_get.py` sends the same GET, resolves the account id, refuses anything outside the allowlist, and redacts stdout:
 
 ```bash
 python3 skills/aiberm/scripts/aiberm_get.py /api/user/self
@@ -93,19 +93,12 @@ python3 skills/aiberm/scripts/aiberm_get.py /api/log/self p=1 page_size=20 type=
 | Usage flow | `GET /api/data/flow/self` |
 | Top-up records | `GET /api/user/topup/self` |
 | Top-up display info | `GET /api/user/topup/info` |
-| Subscription | `GET /api/subscription/self` |
-| Plans | `GET /api/subscription/plans` |
-| Affiliate code | `GET /api/user/aff` |
-| Check-in status | `GET /api/user/checkin` |
-| Async tasks | `GET /api/task/self` |
-| Drawings | `GET /api/mj/self` |
 
 ## Security
 
 - Send the system access token only in the `Authorization` header. The helper obtains the account id from the profile response.
 - Do not log, commit, or paste `AIBERM_ACCESS_TOKEN`.
 - Redact full `sk-` keys if a response contains one. A masked token key contains `****` and stays as returned.
-- `GET /api/user/aff` can create an affiliate code when the user does not have one. Read `aff_code` from `GET /api/user/self` first.
 - Treat `"success": false` as a failure even on HTTP 200.
 
 ## Out of scope
@@ -119,7 +112,7 @@ Do not call admin or payment routes:
 - Key reveal: `POST /api/token/{id}/key` and `POST /api/token/batch/keys`
 - Payment creation: `POST /api/user/pay`, `POST /api/user/stripe/pay`, and other pay routes under `/api/user/` or `/api/subscription/`
 
-Token create, update, and delete, `POST /api/user/topup`, `POST /api/user/checkin`, and subscription purchase are outside the skill. The read that matches a question (masked tokens, top-up info, check-in status, subscription state) is in the table above.
+Creating, updating, or deleting tokens and `POST /api/user/topup` are outside the skill. When a question has a matching read (masked tokens or top-up info), use the table above.
 
 ## Tests
 

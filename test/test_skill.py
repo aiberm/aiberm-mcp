@@ -25,10 +25,8 @@ EXPECTED_PATHS = frozenset(
         "/api/user/self",
         "/api/user/self/groups",
         "/api/user/models",
-        "/api/user/aff",
         "/api/user/topup/info",
         "/api/user/topup/self",
-        "/api/user/checkin",
         "/api/pricing",
         "/api/token/",
         "/api/token/search",
@@ -37,10 +35,6 @@ EXPECTED_PATHS = frozenset(
         "/api/log/self/stat",
         "/api/data/self",
         "/api/data/flow/self",
-        "/api/subscription/self",
-        "/api/subscription/plans",
-        "/api/task/self",
-        "/api/mj/self",
     }
 )
 
@@ -114,6 +108,20 @@ class DocsTest(unittest.TestCase):
             missing = [item for item in (*EXPECTED_PATHS, "/api/token/{id}") if not documents_path(text, item)]
             self.assertEqual(missing, [], f"{label} missing {missing}")
 
+    def test_removed_reads_stay_out(self) -> None:
+        removed = (
+            "/api/subscription/self",
+            "/api/subscription/plans",
+            "/api/user/aff",
+            "/api/user/checkin",
+            "/api/task/self",
+            "/api/mj/self",
+        )
+        for path in (*USER_FACING, HELPER):
+            text = path.read_text()
+            for item in removed:
+                self.assertNotIn(item, text, f"{path.name} still mentions {item}")
+
     def test_out_of_scope_is_documented(self) -> None:
         for path in (SKILL, README):
             text = path.read_text()
@@ -181,6 +189,12 @@ class HelperTest(unittest.TestCase):
             "/api/user/self?x=1",
             "https://evil.example/api/user/self",
             "/api/%2e%2e/channel",
+            "/api/subscription/self",
+            "/api/subscription/plans",
+            "/api/user/aff",
+            "/api/user/checkin",
+            "/api/task/self",
+            "/api/mj/self",
         ):
             with self.assertRaises(helper.UserPathError):
                 helper.normalize_user_path(path)

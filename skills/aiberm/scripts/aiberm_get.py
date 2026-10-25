@@ -33,10 +33,8 @@ USER_PATHS = frozenset(
         "/api/user/self",
         "/api/user/self/groups",
         "/api/user/models",
-        "/api/user/aff",
         "/api/user/topup/info",
         "/api/user/topup/self",
-        "/api/user/checkin",
         "/api/pricing",
         "/api/token/",
         "/api/token/search",
@@ -45,10 +43,6 @@ USER_PATHS = frozenset(
         "/api/log/self/stat",
         "/api/data/self",
         "/api/data/flow/self",
-        "/api/subscription/self",
-        "/api/subscription/plans",
-        "/api/task/self",
-        "/api/mj/self",
     }
 )
 

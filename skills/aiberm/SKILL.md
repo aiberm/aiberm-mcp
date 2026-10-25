@@ -3,8 +3,7 @@ name: aiberm
 description: >-
   Look up the signed-in user's Aiberm account at aiberm.com: balance (余额),
   groups, models (模型), pricing, masked tokens (令牌), usage (用量),
-  top-ups, subscription, affiliate code, check-in status, tasks, and
-  drawings. Use when the user asks about their Aiberm 余额, 模型, 令牌,
+  and top-ups. Use when the user asks about their Aiberm 余额, 模型, 令牌,
   用量, or billing. Call https://aiberm.com with AIBERM_ACCESS_TOKEN, the
   dashboard system access token (系统访问令牌). Refuse admin channels,
   all-user lists, redemptions, system options, key reveal, and payment
@@ -13,7 +12,7 @@ description: >-
 
 # Aiberm account
 
-用户问 Aiberm 的余额、模型、令牌、用量、充值或订阅时，按本技能调用 https://aiberm.com。只设置 `AIBERM_ACCESS_TOKEN`（控制台「系统访问令牌」）。不要向用户索要数字 id。
+用户问 Aiberm 的余额、模型、令牌、用量或充值时，按本技能调用 https://aiberm.com。只设置 `AIBERM_ACCESS_TOKEN`（控制台「系统访问令牌」）。不要向用户索要数字 id。
 
 This skill reads the signed-in user's own Aiberm account: balance, models, tokens, and usage. It does not administer the site, reveal full model keys, or create payments.
 
@@ -111,12 +110,6 @@ When the user names a group, use that group's ratio. Otherwise use ratio 1 and i
 | Quota flow in a range | `GET /api/data/flow/self` |
 | Top-up records | `GET /api/user/topup/self` |
 | Top-up display info | `GET /api/user/topup/info` |
-| Current subscription | `GET /api/subscription/self` |
-| Visible plans | `GET /api/subscription/plans` |
-| Affiliate code | `GET /api/user/aff` |
-| Check-in status | `GET /api/user/checkin` |
-| Async tasks (video, music) | `GET /api/task/self` |
-| Midjourney drawings | `GET /api/mj/self` |
 
 `GET /api/user/self` fields to report: `id`, `username`, `display_name`, `group`, `status`, `role`, `request_count`, `quota`, `used_quota`, `aff_code`, `aff_count`, `aff_quota`, `aff_history_quota`. `data` on `GET /api/user/self/groups` is an object keyed by group name.
 
@@ -130,85 +123,9 @@ Log filters, all optional: `type`, `start_timestamp`, `end_timestamp`, `model_na
 
 `GET /api/user/topup/self` accepts `p`, `page_size`, and `keyword`. `GET /api/user/topup/info` is display info such as enabled amounts. It does not create a payment.
 
-`GET /api/subscription/plans` lists plans visible to the user and does not buy one. `GET /api/user/checkin` is status only.
-
-Read `aff_code` from `GET /api/user/self` first. Call `GET /api/user/aff` only when that code is empty. `data` from `GET /api/user/aff` is the code string, and that GET can generate a code when the user does not have one yet.
-
-`GET /api/task/self` accepts `p`, `page_size`, `platform`, `task_id`, `status`, `action`, `start_timestamp`, and `end_timestamp`. `GET /api/mj/self` accepts `p`, `page_size`, and `mj_id`.
-
 ### Example curls
 
-Profile and balance:
-
-```bash
-curl -sS "https://aiberm.com/api/user/self" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Groups:
-
-```bash
-curl -sS "https://aiberm.com/api/user/self/groups" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Models for one group:
-
-```bash
-curl -sS -G "https://aiberm.com/api/user/models" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
-  --data-urlencode "group=default"
-```
-
-Pricing catalog:
-
-```bash
-curl -sS "https://aiberm.com/api/pricing" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Token list:
-
-```bash
-curl -sS -G "https://aiberm.com/api/token/" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
-  --data-urlencode "p=1" \
-  --data-urlencode "page_size=20"
-```
-
-Token search:
-
-```bash
-curl -sS -G "https://aiberm.com/api/token/search" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
-  --data-urlencode "keyword=prod" \
-  --data-urlencode "p=1" \
-  --data-urlencode "page_size=20"
-```
-
-One token. Replace `{id}` with the numeric id:
-
-```bash
-curl -sS "https://aiberm.com/api/token/{id}" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Token auto groups:
-
-```bash
-curl -sS "https://aiberm.com/api/token/auto-groups" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Usage logs:
+The profile request in section 2 is one sample. Other catalog GETs use the same bearer header. When the call takes a query, keep it a GET with `-G` and `--data-urlencode`. Usage logs (`type=2` is consume):
 
 ```bash
 curl -sS -G "https://aiberm.com/api/log/self" \
@@ -216,107 +133,7 @@ curl -sS -G "https://aiberm.com/api/log/self" \
   -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
   --data-urlencode "p=1" \
   --data-urlencode "page_size=20" \
-  --data-urlencode "type=2" \
-  --data-urlencode "model_name=gpt-4o"
-```
-
-Usage stats:
-
-```bash
-curl -sS -G "https://aiberm.com/api/log/self/stat" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
   --data-urlencode "type=2"
-```
-
-Daily usage:
-
-```bash
-curl -sS -G "https://aiberm.com/api/data/self" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
-  --data-urlencode "start_timestamp=1711929600" \
-  --data-urlencode "end_timestamp=1714521600"
-```
-
-Usage flow:
-
-```bash
-curl -sS -G "https://aiberm.com/api/data/flow/self" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
-  --data-urlencode "start_timestamp=1711929600" \
-  --data-urlencode "end_timestamp=1714521600"
-```
-
-Top-ups:
-
-```bash
-curl -sS -G "https://aiberm.com/api/user/topup/self" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
-  --data-urlencode "p=1" \
-  --data-urlencode "page_size=20"
-```
-
-Top-up info:
-
-```bash
-curl -sS "https://aiberm.com/api/user/topup/info" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Subscription:
-
-```bash
-curl -sS "https://aiberm.com/api/subscription/self" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Plans:
-
-```bash
-curl -sS "https://aiberm.com/api/subscription/plans" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Affiliate code, only when `aff_code` from `GET /api/user/self` is empty:
-
-```bash
-curl -sS "https://aiberm.com/api/user/aff" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Check-in status:
-
-```bash
-curl -sS "https://aiberm.com/api/user/checkin" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN"
-```
-
-Tasks:
-
-```bash
-curl -sS -G "https://aiberm.com/api/task/self" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
-  --data-urlencode "p=1" \
-  --data-urlencode "page_size=20"
-```
-
-Drawings:
-
-```bash
-curl -sS -G "https://aiberm.com/api/mj/self" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
-  --data-urlencode "p=1" \
-  --data-urlencode "page_size=20"
 ```
 
 ## 5. Redact before you answer
@@ -338,9 +155,9 @@ These are admin or secret-revealing surfaces. Do not call them:
 - Key reveal: `POST /api/token/{id}/key` and `POST /api/token/batch/keys`
 - Payment creation: `POST /api/user/pay`, `POST /api/user/stripe/pay`, and other `/api/user/*/pay` or `/api/subscription/*/pay` routes
 
-Also stay inside the GET catalog above. Creating, updating, or deleting tokens, `POST /api/user/topup`, `POST /api/user/checkin`, and buying a subscription are outside this skill.
+Also stay inside the GET catalog above. Creating, updating, or deleting tokens and `POST /api/user/topup` are outside this skill.
 
-If the user asks for an out-of-scope action, say so and stop. Offer the matching read from the catalog when one exists (top-up info, check-in status, masked tokens, subscription state).
+If the user asks for an out-of-scope action, say so and stop. Offer the matching read from the catalog when one exists (top-up info or masked tokens).
 
 ## Helper exit codes
 
