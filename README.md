@@ -17,13 +17,13 @@ Aiberm needs both on every account request, and they must belong to the same use
 
 ## Install
 
-Paste this prompt into Claude Code, Codex, Grok Build, or another agent, and let it install the Skill:
+Paste this prompt into Claude Code, Codex, Grok Bot, or another agent, and let it install the Skill:
 
 ```text
 Install the Aiberm Skill from https://github.com/aiberm/aiberm-skill: copy its skills/aiberm folder into the folder you load Skills from.
 ```
 
-Then start a new session. Call it directly with `/aiberm` in Claude Code and Grok Build, or `$aiberm` in Codex. To update, send the same prompt again.
+Then start a new session. Call it directly with `/aiberm` in Claude Code and Grok Bot, or `$aiberm` in Codex. To update, send the same prompt again.
 
 [`examples/self.sh`](examples/self.sh) is the profile request as a script.
 
