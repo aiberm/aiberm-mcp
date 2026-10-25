@@ -17,26 +17,22 @@ Aiberm needs both on every account request, and they must belong to the same use
 
 ## Install
 
-**Claude Code** (2.1.275 or later), inside a session:
-
-```text
-/plugin install aiberm --marketplace aiberm/aiberm-skill
-```
-
-On older versions, run `/plugin marketplace add aiberm/aiberm-skill`, then `/plugin install aiberm@aiberm`. Run `/reload-plugins` if asked. The skill is `/aiberm:aiberm`.
-
-**Codex**, in a terminal:
+Copy `skills/aiberm` into your agent's Skills folder, then start a new session:
 
 ```bash
-codex plugin marketplace add aiberm/aiberm-skill
-codex plugin add aiberm@aiberm
+git clone https://github.com/aiberm/aiberm-skill.git
+
+# Claude Code
+mkdir -p ~/.claude/skills && cp -R aiberm-skill/skills/aiberm ~/.claude/skills/
+
+# Codex
+mkdir -p ~/.agents/skills && cp -R aiberm-skill/skills/aiberm ~/.agents/skills/
+
+# Grok Build
+mkdir -p ~/.grok/skills && cp -R aiberm-skill/skills/aiberm ~/.grok/skills/
 ```
 
-Then start a new Codex session. You can also install it from `/plugins` inside Codex.
-
-**Other agents**: copy `skills/aiberm` into the folder where the agent loads skills.
-
-The repository is both a Claude Code marketplace (`.claude-plugin/marketplace.json`) and a Codex marketplace (`.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`).
+Run only the lines for the agents you use. Call it directly with `/aiberm` in Claude Code and Grok Build, or `$aiberm` in Codex. To update, run `git pull` in `aiberm-skill` and copy the folder again.
 
 [`examples/self.sh`](examples/self.sh) is the profile request as a script.
 
