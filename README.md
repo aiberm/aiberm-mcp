@@ -2,45 +2,50 @@
 
 Agent skill for an [Aiberm](https://aiberm.com) account. It reads the signed-in user's balance (余额), models (模型), tokens (令牌), and usage (用量).
 
-An agent loads [`skills/aiberm/SKILL.md`](skills/aiberm/SKILL.md) and calls `https://aiberm.com` with `curl` or `fetch`. The only credential is `AIBERM_ACCESS_TOKEN`.
-
 Repository: https://github.com/aiberm/aiberm-skill
 
-The MCP server in [PR #1](https://github.com/aiberm/aiberm-skill/pull/1) was abandoned. Install this skill and call Aiberm directly.
+Full request list, query parameters, and response fields: [`skills/aiberm/SKILL.md`](skills/aiberm/SKILL.md). The skill `name` is `aiberm`.
 
-## How an agent uses it
+## Set the access token
 
-1. Install the skill directory so the agent can read `SKILL.md`.
-2. Export `AIBERM_ACCESS_TOKEN` in the environment the agent runs in.
-3. Follow the skill. Each catalog entry is a `GET` against `https://aiberm.com` with `Authorization: Bearer <access_token>`.
-4. Redact the access token and any full `sk-` key before showing the response. Leave masked token keys that contain `****` as returned.
+The only credential is `AIBERM_ACCESS_TOKEN`.
 
-The helper reads the numeric account id from `GET /api/user/self` (`data.id`). Do not ask the user for a user id. If Aiberm requires its account header, the helper sends that id and retries. Users only set `AIBERM_ACCESS_TOKEN`.
+| Variable | Required | Meaning |
+| --- | --- | --- |
+| `AIBERM_ACCESS_TOKEN` | yes | Dashboard system access token (系统访问令牌). |
 
-Install into an agent skills directory:
+On [aiberm.com](https://aiberm.com), open personal settings → security → system access token (系统访问令牌), then export it in the environment the agent runs in:
+
+```bash
+export AIBERM_ACCESS_TOKEN="your-system-access-token"
+```
+
+Copy [`.env.example`](.env.example) and fill it in outside git. `.env` is gitignored.
+
+A model key starts with `sk-` and calls `https://aiberm.com/v1`. This skill does not call the relay and does not reveal those keys.
+
+## Install
+
+Install the skill directory so the agent can read `SKILL.md`:
 
 ```bash
 mkdir -p ~/.cursor/skills
 cp -R skills/aiberm ~/.cursor/skills/aiberm
 ```
 
-The same folder works at `.cursor/skills/aiberm`, `.agents/skills/aiberm`, `~/.claude/skills/aiberm`, or `~/.codex/skills/aiberm`. The skill `name` is `aiberm`.
+The same folder works at `.cursor/skills/aiberm`, `.agents/skills/aiberm`, `~/.claude/skills/aiberm`, or `~/.codex/skills/aiberm`.
 
-## Environment
+## Use the skill
 
-| Variable | Required | Meaning |
-| --- | --- | --- |
-| `AIBERM_ACCESS_TOKEN` | yes | Dashboard system access token (系统访问令牌). |
+Each catalog entry is a `GET` against `https://aiberm.com` with `Authorization: Bearer <access_token>`. The account id comes from `GET /api/user/self` (`data.id`). If Aiberm requires its account header, the helper sends that id and retries. You only set `AIBERM_ACCESS_TOKEN`.
 
-Copy [`.env.example`](.env.example) and fill it in outside git. `.env` is gitignored.
-
-The token comes from [aiberm.com](https://aiberm.com): personal settings → security → system access token (系统访问令牌). A model key starts with `sk-` and calls `https://aiberm.com/v1`. This skill does not call the relay and does not reveal those keys.
+Redact the access token and any full `sk-` key before showing a response. Leave masked token keys that contain `****` as returned.
 
 `quota` on `GET /api/user/self` is the remaining balance. `used_quota` is cumulative consumption. Do not subtract `used_quota` from `quota`. USD = `quota / 500000`, rounded to 6 decimal places. A `quota` of `2500000` is $5.00 remaining. A `used_quota` of `500000` is $1.00 spent.
 
 Per-token input USD per 1M tokens is `model_ratio * group_ratio * (1000000 / 500000)`. Per-request models (`quota_type` 1) use `model_price * group_ratio`.
 
-## Example curls
+### Example curls
 
 Profile and remaining balance:
 
