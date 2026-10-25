@@ -1,6 +1,6 @@
 # aiberm-skill
 
-Agent skill for an [Aiberm](https://aiberm.com) account. It reads the signed-in user's balance (余额), models (模型), tokens (令牌), usage (用量), pricing, and top-ups. The skill is a single [`SKILL.md`](skills/aiberm/SKILL.md) that teaches the agent to call the Aiberm API with curl.
+Agent skill for an [Aiberm](https://aiberm.com) account. It reads the signed-in user's balance (余额), models (模型), tokens (令牌), usage (用量), pricing, and top-ups, and can create, edit, enable, disable, or delete the user's API tokens. The skill is a single [`SKILL.md`](skills/aiberm/SKILL.md) that teaches the agent to call the Aiberm API with curl.
 
 Repository: https://github.com/aiberm/aiberm-skill
 
@@ -28,4 +28,4 @@ The same folder works under `~/.cursor/skills/`, `~/.codex/skills/`, or a projec
 
 ## Security
 
-The system access token can do everything your dashboard session can, including admin actions if the account is an admin. Prefer a regular account for agent use. `GET /api/user/token` resets the token; the skill tells the agent never to call it.
+The system access token can do everything your dashboard session can, including admin actions if the account is an admin. Prefer a regular account for agent use. The skill tells the agent to confirm every token change with you first, and never to call `GET /api/user/token`, which resets the system access token.

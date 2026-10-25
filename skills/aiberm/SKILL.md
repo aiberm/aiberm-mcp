@@ -2,14 +2,16 @@
 name: aiberm
 description: >-
   Look up the signed-in user's Aiberm account at aiberm.com: balance (余额),
-  models (模型), pricing, tokens (令牌), usage (用量), and top-ups. Use when the
-  user asks about their Aiberm 余额, 模型, 令牌, 用量, or billing. Calls the
-  Aiberm API with AIBERM_ACCESS_TOKEN (系统访问令牌) and AIBERM_USER_ID.
+  models (模型), pricing, tokens (令牌), usage (用量), and top-ups, and create,
+  edit, enable, disable, or delete the user's API tokens. Use when the user
+  asks about their Aiberm 余额, 模型, 令牌, 用量, or billing, or wants a new
+  Aiberm API key. Calls the Aiberm API with AIBERM_ACCESS_TOKEN (系统访问令牌)
+  and AIBERM_USER_ID.
 ---
 
 # Aiberm account
 
-用户问 Aiberm 的余额、模型、令牌、用量或充值时，用 curl 只读调用 https://aiberm.com 的接口。
+用户问 Aiberm 的余额、模型、令牌、用量或充值，或者要创建、修改、删除 API 令牌时，用 curl 调用 https://aiberm.com 的接口。
 
 ## Credentials
 
@@ -62,13 +64,51 @@ Pricing rows from `/api/pricing`:
 
 `/api/pricing` ignores the access token, so its `group_ratio` is the anonymous view. Use the user's ratio from `/api/user/self/groups`. A model is available in the groups listed in its `enable_groups`.
 
+## Manage tokens
+
+The user may ask you to create, edit, enable, disable, or delete their API tokens (令牌). Before every write, tell the user exactly what you will send (name, quota in USD, expiry, group, model limits, or which token to delete) and wait for them to confirm.
+
+Writes send JSON, for example:
+
+```bash
+curl -sS -X POST "https://aiberm.com/api/token/" \
+  -H "Authorization: Bearer $AIBERM_ACCESS_TOKEN" \
+  -H "New-Api-User: $AIBERM_USER_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-app", "unlimited_quota": true, "remain_quota": -1, "expired_time": -1, "group": "auto"}'
+```
+
+| Action | Request | Body |
+| --- | --- | --- |
+| Create | `POST /api/token/` | the fields below |
+| Edit | `PUT /api/token/` | the whole token, with `id` |
+| Enable or disable | `PUT /api/token/?status_only=true` | `{"id": 12, "status": 1}` (1 enabled, 2 disabled) |
+| Delete | `DELETE /api/token/{id}` | none |
+
+Token fields:
+
+- `name`: at most 50 characters.
+- `unlimited_quota`: `true` for no cap. Otherwise `remain_quota` is the cap in quota units: $5 is `2500000`.
+- `expired_time`: unix seconds, or `-1` for never.
+- `group`: a group from `GET /api/user/self/groups`. Without one from the user, use `auto` if it is listed, else `""` (the user's own group).
+- `model_limits_enabled` and `model_limits`: to allow only some models, `true` and a comma-separated list of names from `GET /api/user/models`.
+- `allow_ips`: allowed client IPs, one per line. `""` allows any.
+
+Without other instructions, create tokens like the console does: unlimited quota and no expiry.
+
+Create returns no key. Afterwards, `GET /api/token/?p=1` lists the newest token first. Find it by name and give the user the full key, which is `sk-` followed by `key`.
+
+Edit replaces every field. `GET /api/token/{id}` first, change only what the user asked, and send the whole object back. A missing `expired_time` or `remain_quota` becomes `0`, which expires the token or empties it.
+
+An expired or exhausted token cannot be enabled until its `expired_time` or quota is changed. Delete cannot be undone, and apps using that key stop working.
+
 ## Secrets
 
-- Token responses contain full model keys. Never repeat one. Show `sk-` plus the first and last four characters, like `sk-abcd****wxyz`. To list tokens without keys: `| jq 'del(.data.items[].key)'`.
+- Token responses contain full model keys. Show the full key (`sk-` + `key`) only for a token you just created. Elsewhere show `sk-` plus the first and last four characters, like `sk-abcd****wxyz`. To list tokens without keys: `| jq 'del(.data.items[].key)'`.
 - The profile's `setting` can hold a webhook secret or Gotify token. Do not repeat those either.
 
 ## Do not call
 
 - `GET /api/user/token`: it **resets** the system access token, and the current one stops working.
 - Admin routes such as `/api/channel/`, `/api/option/`, `/api/redemption/`, `/api/log/`, and the user list `/api/user/`.
-- Anything that is not a GET: payments, top-up codes, affiliate transfers, and token or account changes. Send the user to the Aiberm dashboard for those.
+- Any other write: payments, top-up codes, affiliate transfers, and changes to the account itself. Send the user to the Aiberm dashboard for those.
