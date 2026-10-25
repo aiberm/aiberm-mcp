@@ -17,22 +17,13 @@ Aiberm needs both on every account request, and they must belong to the same use
 
 ## Install
 
-Copy `skills/aiberm` into your agent's Skills folder, then start a new session:
+Paste this prompt into Claude Code, Codex, Grok Build, or another agent, and let it install the Skill:
 
-```bash
-git clone https://github.com/aiberm/aiberm-skill.git
-
-# Claude Code
-mkdir -p ~/.claude/skills && cp -R aiberm-skill/skills/aiberm ~/.claude/skills/
-
-# Codex
-mkdir -p ~/.agents/skills && cp -R aiberm-skill/skills/aiberm ~/.agents/skills/
-
-# Grok Build
-mkdir -p ~/.grok/skills && cp -R aiberm-skill/skills/aiberm ~/.grok/skills/
+```text
+Install the Aiberm Skill from https://github.com/aiberm/aiberm-skill: copy its skills/aiberm folder into the folder you load Skills from (Claude Code: ~/.claude/skills, Codex: ~/.agents/skills, Grok Build: ~/.grok/skills).
 ```
 
-Run only the lines for the agents you use. Call it directly with `/aiberm` in Claude Code and Grok Build, or `$aiberm` in Codex. To update, run `git pull` in `aiberm-skill` and copy the folder again.
+Then start a new session. Call it directly with `/aiberm` in Claude Code and Grok Build, or `$aiberm` in Codex. To update, send the same prompt again.
 
 [`examples/self.sh`](examples/self.sh) is the profile request as a script.
 
